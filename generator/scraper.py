@@ -1,11 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-import openai
 import os
 from datetime import datetime
 import re
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
@@ -32,15 +30,6 @@ def extract_article(url):
     p_tags = soup.select("div.article p")
     body = "\n\n".join(p.get_text(strip=True) for p in p_tags if len(p.get_text(strip=True)) > 10)
     return title, body
-
-def translate_to_vietnamese(chinese_text):
-    prompt = f"将下面的中文新闻翻译成越南语：\n\n{chinese_text}"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.4
-    )
-    return response.choices[0].message["content"]
 
 def slugify(text):
     return re.sub(r'[^a-z0-9]+', '-', text.lower())[:50]
@@ -80,10 +69,8 @@ saved = load_saved_urls()
             continue
         try:
             title_cn, content_cn = extract_article(url)
-            full_cn = f"{title_cn}\n\n{content_cn}"
-            full_vi = translate_to_vietnamese(full_cn)
             filename = slugify(title_cn)
-            save_article(full_vi.splitlines()[0], "\n".join(full_vi.splitlines()[1:]), filename)
+            save_article(title_cn, content_cn, filename)
             save_url(url)
             print(f"[✓] Saved: {filename}")
         except Exception as e:
