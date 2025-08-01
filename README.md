@@ -1,3 +1,2 @@
-# 中文新闻自动翻译发布系统（越南语）
-
-此系统将自动抓取中文新闻，翻译为越南语，并构建静态网站发布到 GitHub Pages。
+# News Website
+Auto-scraped and built news articles deployed via GitHub Pages.

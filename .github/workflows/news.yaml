@@ -1,33 +1,27 @@
-name: News Auto Deploy
-
+name: Auto Build News
 on:
-  schedule:
-    - cron: "0 * * * *"  # 每小时执行一次
-  workflow_dispatch:     # 允许手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    - name: Install dependencies
-      run: pip install requests beautifulsoup4 markdown
-
-    - name: Run scraper and build
-      run: |
-        python generator/scraper.py
-        python generator/build_articles.py
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: .
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+      - name: Run scraper and build
+        run: |
+          python generator/scraper.py
+          python generator/build_articles.py
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
