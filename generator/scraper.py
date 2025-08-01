@@ -1,78 +1,70 @@
+import os
 import requests
 from bs4 import BeautifulSoup
-import os
 from datetime import datetime
-import re
+import hashlib
 
+POSTS_DIR = "content/posts"
+SAVED_URLS_FILE = "generator/saved_urls.txt"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-def get_news_links():
-    url = "https://news.sina.com.cn/china/"
-    res = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(res.text, "html.parser")
-    links = []
-    for a in soup.select("a[href^='https://news.sina.com.cn/c/']"):
-        href = a.get("href")
-        title = a.get_text(strip=True)
-        if len(title) > 5 and href not in links:
-            links.append(href)
-        if len(links) >= 3:
-            break
-    return links
-
-def extract_article(url):
-    res = requests.get(url, headers=HEADERS, timeout=10)
-    soup = BeautifulSoup(res.text, "html.parser")
-    title = soup.find("h1").get_text(strip=True) if soup.find("h1") else "无标题"
-    p_tags = soup.select("div.article p")
-    body = "\n\n".join(p.get_text(strip=True) for p in p_tags if len(p.get_text(strip=True)) > 10)
-    return title, body
+os.makedirs(POSTS_DIR, exist_ok=True)
 
 def slugify(text):
-    return re.sub(r'[^a-z0-9]+', '-', text.lower())[:50]
+    return hashlib.md5(text.encode("utf-8")).hexdigest()[:10]
 
-def save_article(title_vi, content_vi, filename, category="Thời sự"):
-    date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    md_path = f"content/posts/{filename}.md"
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(f"""---
-title: "{title_vi}"
-date: "{date_str}"
-category: "{category}"
-tags: []
-image: ""
----
-
-{content_vi}
-""")
-
-def load_saved_urls():
-    try:
-        with open("generator/saved_urls.txt", "r", encoding="utf-8") as f:
-            return set(line.strip() for line in f)
-    except FileNotFoundError:
+def get_existing_urls():
+    if not os.path.exists(SAVED_URLS_FILE):
         return set()
+    with open(SAVED_URLS_FILE, "r", encoding="utf-8") as f:
+        return set(line.strip() for line in f)
 
 def save_url(url):
-    with open("generator/saved_urls.txt", "a", encoding="utf-8") as f:
+    with open(SAVED_URLS_FILE, "a", encoding="utf-8") as f:
         f.write(url + "\n")
 
+def save_article(title, content, filename, category="时事"):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    md = f"""---
+title: {title}
+date: {now}
+category: {category}
+---
+
+{content}
+"""
+    path = os.path.join(POSTS_DIR, f"{filename}.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(md)
+
+def fetch_news():
+    url = "https://news.sina.com.cn/china/"
+    r = requests.get(url)
+    r.encoding = "utf-8"
+    soup = BeautifulSoup(r.text, "html.parser")
+    links = [a["href"] for a in soup.select("a[href^=https://news.sina.com.cn/c/]") if a["href"].endswith(".shtml")]
+    return links[:5]
+
+def parse_article(url):
+    r = requests.get(url)
+    r.encoding = "utf-8"
+    soup = BeautifulSoup(r.text, "html.parser")
+    title = soup.find("h1").text.strip() if soup.find("h1") else "未命名"
+    paras = [p.text.strip() for p in soup.select("div.article p") if p.text.strip()]
+    content = "\n\n".join(paras)
+    return title, content
+
 def main():
-    links = get_news_links()
-saved = load_saved_urls()
+    seen = get_existing_urls()
+    links = fetch_news()
     for url in links:
-        if url in saved:
-            print(f'[✓] Skipping (already processed): {url}')
+        if url in seen:
             continue
         try:
-            title_cn, content_cn = extract_article(url)
-            filename = slugify(title_cn)
-            save_article(title_cn, content_cn, filename)
+            title, content = parse_article(url)
+            filename = slugify(title)
+            save_article(title, content, filename)
             save_url(url)
-            print(f"[✓] Saved: {filename}")
+            print(f"[✓] Saved: {title}")
         except Exception as e:
             print(f"[×] Error processing {url}: {e}")
 
