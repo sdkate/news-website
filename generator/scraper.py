@@ -1,3 +1,4 @@
+# generator/scraper.py
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -41,7 +42,7 @@ def fetch_news():
     r = requests.get(url)
     r.encoding = "utf-8"
     soup = BeautifulSoup(r.text, "html.parser")
-    links = [a["href"] for a in soup.select("a[href^=https://news.sina.com.cn/c/]") if a["href"].endswith(".shtml")]
+    links = [a["href"] for a in soup.select('a[href^="https://news.sina.com.cn/c/"]') if a["href"].endswith(".shtml")]
     return links[:5]
 
 def parse_article(url):
@@ -64,9 +65,9 @@ def main():
             filename = slugify(title)
             save_article(title, content, filename)
             save_url(url)
-            print(f"[✓] Saved: {title}")
+            print(f"[\u2713] Saved: {title}")
         except Exception as e:
-            print(f"[×] Error processing {url}: {e}")
+            print(f"[\u00d7] Error processing {url}: {e}")
 
 if __name__ == "__main__":
     main()
